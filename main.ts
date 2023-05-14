@@ -53,7 +53,7 @@ function captacion_gestos() {
     numero_gesto = 1
 
     limpiar_serie_tiempo()
-    numero_gesto_aux = parseInt(solicitar_api("GET", "/raspi-api/dataset", ""))
+    numero_gesto_aux = parseInt(solicitar_api("GET", "/datos-api/dataset", ""))
     if (!isNaN(numero_gesto_aux)) numero_gesto = numero_gesto_aux
     basic.showNumber(numero_gesto)
 
@@ -65,7 +65,7 @@ function captacion_gestos() {
             serie_tiempo.z.push(input.acceleration(Dimension.Z))
             pause(periodo)
         } else if (tacto_identificado) {
-            numero_gesto = parseInt(solicitar_api("POST", "/raspi-api/dataset", objeto_a_parametros(serie_tiempo)))
+            numero_gesto = parseInt(solicitar_api("POST", "/datos-api/dataset", objeto_a_parametros(serie_tiempo)))
             limpiar_serie_tiempo()
             if (numero_gesto == 0) break
             tacto_identificado = false
