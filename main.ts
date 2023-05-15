@@ -50,20 +50,33 @@ function limpiar_serie_tiempo() {
     serie_tiempo.y = []
     serie_tiempo.z = []
 }
-function crear_peticion_HTTP(metodo: string, pagina: string, contenido: string) {
-    return metodo + " " + pagina + (contenido.length > 0 ? "?" + contenido : "") + " HTTP/1.1\r\n" + "Host:" + DIRECCION_API + "\r\n" + "Accept: text/plain\r\n\r\n"
+function crear_peticion_HTTP(metodo: string, pagina: string, contenido: string, contenido_json: boolean = false) {
+    if(contenido_json){
+        return `${metodo} ${pagina} HTTP/1.1
+Host:${DIRECCION_API}
+Accept: application/json;text/plain
+Content-Type: application/json
+Content-Length: ${contenido.length}
+
+${contenido}`
+    }else{
+return `${metodo} ${pagina}${contenido.length > 0 ? "?" + contenido : ""} HTTP/1.1
+Host:${DIRECCION_API}
+Accept: application/json;text/plain
+Content-Type: text/plain\r\n\r\n`
+    }
 }
 function recuperar_respuesta() {
     const contenido: number = parseInt(cadena_serial[cadena_serial.indexOf("content-length") + 16])-RESPUESTA
     return cadena_serial.substr(cadena_serial.length-contenido-1, contenido)
 }
-function solicitar_api(metodo: string, pagina: string, contenido: string) {
+function solicitar_api(metodo: string, pagina: string, contenido: string, contenido_json: boolean) {
     if (!comando_AT("AT+CIPSTART=\"TCP\",\"" + DIRECCION_API + "\"," + PUERTO_API, "OK", 3000)) {
         basic.showString("E0")
         return "E0"
     }
 
-    let peticion_http: string = crear_peticion_HTTP(metodo, pagina, contenido)
+    let peticion_http: string = crear_peticion_HTTP(metodo, pagina, contenido, contenido_json)
     if (!comando_AT("AT+CIPSEND=" + peticion_http.length, "OK", 3000)) {
         basic.showString("E1")
         return "E1"
@@ -84,16 +97,6 @@ function solicitar_api(metodo: string, pagina: string, contenido: string) {
 
     cadena_serial = respuesta
     return recuperar_respuesta()
-}
-function objeto_a_parametros(objeto: object) {
-    let parametros: string = JSON.stringify(objeto)
-    parametros = parametros.replaceAll("{", "")
-    parametros = parametros.replaceAll("}", "")
-    parametros = parametros.replaceAll(",\"", "&")
-    parametros = parametros.replaceAll("\"", "")
-    parametros = parametros.replaceAll(":", "=")
-    parametros = parametros.replaceAll(" ", "%")
-    return parametros
 }
 
 
@@ -117,7 +120,7 @@ function captacion_gestos() {
     numero_gesto = -1
 
     limpiar_serie_tiempo()
-    let respuesta: string = solicitar_api("GET", "/datos-api/dataset/retomar", "")
+    let respuesta: string = solicitar_api("GET", "/datos-api/dataset/retomar", "", false)
     if (respuesta != " "){
         if (!isNaN(parseInt(respuesta))) 
             numero_gesto = parseInt(respuesta)
@@ -134,7 +137,7 @@ function captacion_gestos() {
             pause(periodo)
         } else if (tacto_identificado) {
             tacto_identificado = false
-            numero_gesto = parseInt(solicitar_api("POST", "/datos-api/dataset", objeto_a_parametros(serie_tiempo))) //Se comunica el gesto muestreado
+            numero_gesto = parseInt(solicitar_api("POST", "/datos-api/dataset", JSON.stringify(serie_tiempo), true)) //Se comunica el gesto muestreado
             limpiar_serie_tiempo()
             if (numero_gesto == 0) break
             basic.showIcon(IconNames.Yes)
