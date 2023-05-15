@@ -124,6 +124,26 @@ function captacion_gestos() {
     }
 
     basic.showNumber(numero_gesto)
+
+    while(true){
+        if (input.pinIsPressed(TouchPin.P2)){
+            tacto_identificado = true
+            serie_tiempo.x.push(input.acceleration(Dimension.X))
+            serie_tiempo.y.push(input.acceleration(Dimension.Y))
+            serie_tiempo.z.push(input.acceleration(Dimension.Z))
+            pause(periodo)
+        } else if (tacto_identificado) {
+            tacto_identificado = false
+            numero_gesto = parseInt(solicitar_api("POST", "/datos-api/dataset", objeto_a_parametros(serie_tiempo))) //Se comunica el gesto muestreado
+            limpiar_serie_tiempo()
+            if (numero_gesto == 0) break
+            basic.showIcon(IconNames.Yes)
+            pause(500)
+            basic.showNumber(numero_gesto)
+        }
+    }
+
+    basic.showIcon(IconNames.Happy)
 }
 
 
