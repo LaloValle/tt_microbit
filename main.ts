@@ -144,7 +144,7 @@ function captacion_gestos() {
             numero_gesto = solicitar_api("POST", "/datos-api/dataset", JSON.stringify(serie_tiempo), true,3000) //Se comunica el gesto muestread0
             limpiar_serie_tiempo()
             if (numero_gesto == 0) break
-            basic.showNumber(numero_gesto)
+            basic.showNumber(numero_gesto >= 10 ? numero_gesto%10 : numero_gesto)
         }
     }
 
