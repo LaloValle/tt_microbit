@@ -1,12 +1,12 @@
-const SSID: string = "INFINITUM0I6B_2.4"
-const PASSWORD: string = "NHTy46VqSs"
+const SSID: string = "INFINITUMFE53"
+const PASSWORD: string = "mKYQ9aC9qx"
 const PUERTO_API: string = "5690"
 const DIRECCION_API: string = "192.168.1.142"
 const RESPUESTA: number = 7
 
 let cadena_serial: string = ""
 
-const periodo: number = 50
+const periodo: number = 25
 let numero_gesto: number = 0
 let serie_tiempo = {
     x: [0],
@@ -19,7 +19,7 @@ function enviar_AT(comando: string, tiempo_espera: number = 100) {
     serial.writeString(comando + "\u000D\u000A")
     basic.pause(tiempo_espera)
 }
-function esperar_respuesta(estado: string, estado_error: boolean = false): boolean {
+function esperar_respuesta(estado: string, tiempo_espera:number=5000): boolean {
     let resultado: boolean = false
     let tiempo_inicio: number = input.runningTime()
 
@@ -29,19 +29,22 @@ function esperar_respuesta(estado: string, estado_error: boolean = false): boole
             resultado = true
             break
         }
-        if (estado_error) {
-            if (cadena_serial.includes("ERROR")) {
-                resultado = false
-                break
-            }
+        if (input.runningTime() - tiempo_inicio > tiempo_espera){
+            resultado = false
+            break
         }
-        if (input.runningTime() - tiempo_inicio > 50000) break
     }
     return resultado
 }
-function comando_AT(comando: string, estado: string, tiempo_espera: number = 1000, limpiar_serial: boolean = true) {
+function comando_AT(comando: string, estado: string, tiempo_espera: number = 1000, limpiar_serial: boolean = true, estricto_resolver : boolean = false) {
     enviar_AT(comando)
-    let exito: boolean = esperar_respuesta(estado)
+    let exito: boolean = false
+    if(estricto_resolver){
+        while(!exito)
+            exito = esperar_respuesta(estado, tiempo_espera)
+    }else{
+        exito = esperar_respuesta(estado, tiempo_espera)
+    }
     if (limpiar_serial) cadena_serial = ""
     return exito
 }
@@ -60,70 +63,71 @@ Content-Length: ${contenido.length}
 
 ${contenido}`
     }else{
-return `${metodo} ${pagina}${contenido.length > 0 ? "?" + contenido : ""} HTTP/1.1
-Host:${DIRECCION_API}
-Accept: application/json;text/plain
-Content-Type: text/plain\r\n\r\n`
+        return metodo + " " + pagina + (contenido.length > 0 ? "?" + contenido : "") + " HTTP/1.1\r\n" + "Host:" + DIRECCION_API + "\r\n\r\n"
     }
 }
-function recuperar_respuesta() {
-    const contenido: number = parseInt(cadena_serial[cadena_serial.indexOf("content-length") + 16])-RESPUESTA
-    return cadena_serial.substr(cadena_serial.length-contenido-1, contenido)
+function recuperar_respuesta(cadena:string) {
+    const largo_contenido: number = parseInt(cadena[cadena.indexOf("content-length") + 16])-RESPUESTA
+    const contenido: string = cadena.substr(cadena.length - (RESPUESTA + largo_contenido) + 1, largo_contenido)
+    return parseInt(contenido)
 }
-function solicitar_api(metodo: string, pagina: string, contenido: string, contenido_json: boolean) {
-    if (!comando_AT("AT+CIPSTART=\"TCP\",\"" + DIRECCION_API + "\"," + PUERTO_API, "OK", 3000)) {
+function solicitar_api(metodo: string, pagina: string, contenido: string, contenido_json: boolean, tiempo_espera: number = 5000, extender_tiempo_servidor: boolean = false) {
+    if (!comando_AT("AT+CIPSTART=\"TCP\",\"" + DIRECCION_API + "\"," + PUERTO_API, "OK", tiempo_espera, true)) {
         basic.showString("E0")
-        return "E0"
+        return -1
     }
 
     let peticion_http: string = crear_peticion_HTTP(metodo, pagina, contenido, contenido_json)
-    if (!comando_AT("AT+CIPSEND=" + peticion_http.length, "OK", 3000)) {
+    if (!comando_AT("AT+CIPSEND=" + peticion_http.length, ">", tiempo_espera)) {
         basic.showString("E1")
-        return "E1"
+        return -1
     }
 
-    if (!comando_AT(peticion_http, "resp:", 3000, false)) {
+    if (!comando_AT(peticion_http, ':resp"', extender_tiempo_servidor ? 20000 : tiempo_espera, false)) {
         basic.showString("E2")
-        return "E2"
+        return -1
     }
 
-    let respuesta : string = cadena_serial
+    let cadena_respuesta : string = cadena_serial
     cadena_serial = ""
 
     if (!comando_AT("AT+CIPCLOSE", "OK")) {
         basic.showString("E3")
-        return "E3"
+        cadena_serial = ""
+        return -1
     }
 
-    cadena_serial = respuesta
-    return recuperar_respuesta()
+    return recuperar_respuesta(cadena_respuesta)
 }
 
 
 function inicializacion() {
-    basic.showIcon(IconNames.Ghost)
     serial.redirect(SerialPin.P0, SerialPin.P1, 115200) //Se asignan los pines que funcionarán como Receptor(Rx) y Emisor(Tx)
     serial.setRxBufferSize(500)
     serial.setTxBufferSize(500)
-    comando_AT("AT+RESTORE", "OK") //Recupera configuración de fábrica por defecto
-    comando_AT("AT+RST", "OK") //Uilizado para reiniciar la función del módulo
+    comando_AT("AT+RESTORE", "OK", 5000, true, true) //Recupera configuración de fábrica por defecto
+    comando_AT("AT+RST", "OK", 5000, true, true) //Uilizado para reiniciar la función del módulo
 }
 function configurar_modo() {
     basic.showIcon(IconNames.Pitchfork)
-    comando_AT("AT+CWMODE=1", "OK") //Asigna modo estación(Station) como dispositivo conectado a una red existente
-    comando_AT("AT+CWJAP=\"" + SSID + "\",\"" + PASSWORD + "\"", "OK", 3000) //Permite la conexión a una red existente o Access Point(AP)
+    comando_AT("AT+CWMODE=1", "OK", 5000, true, true) //Asigna modo estación(Station) como dispositivo conectado a una red existente
+    comando_AT("AT+CWJAP=\"" + SSID + "\",\"" + PASSWORD + "\"", "WIFI GOT IP", 10000, true, true) //Permite la conexión a una red existente o Access Point(AP)
 }
+
 function captacion_gestos() {
-    basic.showIcon(IconNames.Target)
     let tacto_identificado: boolean = false
     let numero_gesto_aux: number = 0
     numero_gesto = -1
 
     limpiar_serie_tiempo()
-    let respuesta: string = solicitar_api("GET", "/datos-api/dataset/retomar", "", false)
-    if (respuesta != " "){
-        if (!isNaN(parseInt(respuesta))) 
-            numero_gesto = parseInt(respuesta)
+    let respuesta: number = -1
+    while (true) {
+        basic.showIcon(IconNames.Ghost)
+        respuesta = solicitar_api("GET", "/datos-api/dataset/retomar", "", false, 3000, true)
+        if (respuesta != -1){
+            numero_gesto = respuesta
+            break
+        }
     }
 
     basic.showNumber(numero_gesto)
@@ -137,11 +141,9 @@ function captacion_gestos() {
             pause(periodo)
         } else if (tacto_identificado) {
             tacto_identificado = false
-            numero_gesto = parseInt(solicitar_api("POST", "/datos-api/dataset", JSON.stringify(serie_tiempo), true)) //Se comunica el gesto muestreado
+            numero_gesto = solicitar_api("POST", "/datos-api/dataset", JSON.stringify(serie_tiempo), true,3000) //Se comunica el gesto muestread0
             limpiar_serie_tiempo()
             if (numero_gesto == 0) break
-            basic.showIcon(IconNames.Yes)
-            pause(500)
             basic.showNumber(numero_gesto)
         }
     }
