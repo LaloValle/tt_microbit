@@ -6,7 +6,7 @@ const RESPUESTA: number = 7
 
 let cadena_serial: string = ""
 
-const periodo: number = 25
+const periodo: number = 37
 let numero_gesto: number = 0
 let serie_tiempo = {
     x: [0],
