@@ -1,5 +1,5 @@
-const SSID: string = "INFINITUMFE53"
-const PASSWORD: string = "mKYQ9aC9qx"
+const SSID: string = "Zonet"
+const PASSWORD: string = ""
 const PUERTO_API: string = "5690"
 const DIRECCION_API: string = "192.168.1.142"
 const RESPUESTA: number = 7
@@ -123,7 +123,7 @@ function captacion_gestos() {
     let respuesta: number = -1
     while (true) {
         basic.showIcon(IconNames.Ghost)
-        respuesta = solicitar_api("GET", "/datos-api/dataset/retomar", "", false, 3000, true)
+        respuesta = solicitar_api("GET", "/datos-api/dataset/retomar", "", false, 5000, true)
         if (respuesta != -1){
             numero_gesto = respuesta
             break
